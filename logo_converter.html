@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SSD1306 Logo Converter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0a0a0f;
+    --panel:   #111118;
+    --border:  #2a2a3a;
+    --accent:  #00e5ff;
+    --accent2: #ff3d71;
+    --text:    #c8ccd8;
+    --mono:    'Share Tech Mono', monospace;
+    --sans:    'Barlow', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .sub {
+    font-size: 0.78rem;
+    color: #555;
+    letter-spacing: 0.08em;
+    margin-bottom: 32px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+    max-width: 860px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 20px;
+    position: relative;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: #444;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 1px dashed var(--border);
+    height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: rgba(0,229,255,0.04); }
+  .dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .dropzone-icon { font-size: 2rem; margin-bottom: 8px; opacity: 0.3; }
+  .dropzone-text { font-size: 0.8rem; color: #444; letter-spacing: 0.06em; }
+
+  /* Controls */
+  .controls { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+
+  label { font-size: 0.75rem; color: #555; letter-spacing: 0.08em; display: block; margin-bottom: 4px; }
+
+  input[type=range] {
+    width: 100%; accent-color: var(--accent);
+    background: transparent;
+  }
+
+  .row { display: flex; align-items: center; gap: 10px; }
+  .val {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    min-width: 32px;
+  }
+
+  select, input[type=number] {
+    background: #0d0d14;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 8px;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    width: 100%;
+    outline: none;
+  }
+  select:focus, input[type=number]:focus { border-color: var(--accent); }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .toggle {
+    width: 36px; height: 18px;
+    background: #1a1a26;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: left 0.2s;
+  }
+  .toggle.on::after { left: 20px; }
+
+  /* Preview */
+  .preview-wrap {
+    background: #000;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    min-height: 160px;
+  }
+
+  canvas { image-rendering: pixelated; display: block; }
+
+  #previewCanvas {
+    border: 1px solid #1a1a26;
+  }
+
+  /* Pixel grid overlay toggle */
+  .pixel-info {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: #333;
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  /* Output */
+  .output-wrap {
+    grid-column: 1 / -1;
+  }
+
+  textarea {
+    width: 100%;
+    height: 200px;
+    background: #070710;
+    border: 1px solid var(--border);
+    color: #5af;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 12px;
+    resize: vertical;
+    outline: none;
+    line-height: 1.5;
+  }
+  textarea:focus { border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    padding: 8px 18px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.15s, color 0.15s;
+    margin-top: 10px;
+  }
+  .btn:hover { background: var(--accent); color: #000; }
+  .btn.danger { border-color: var(--accent2); color: var(--accent2); }
+  .btn.danger:hover { background: var(--accent2); color: #fff; }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* Integration code */
+  .integration {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 20px;
+    position: relative;
+  }
+  .integration::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent2), transparent);
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: #5af;
+    line-height: 1.6;
+    overflow-x: auto;
+    background: #070710;
+    padding: 12px;
+    border: 1px solid var(--border);
+    margin-top: 10px;
+  }
+  .kw  { color: #ff79c6; }
+  .cm  { color: #444; }
+  .fn  { color: #50fa7b; }
+  .str { color: #f1fa8c; }
+
+  .status {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 6px 10px;
+    margin-top: 8px;
+    display: none;
+  }
+  .status.ok  { background: rgba(0,229,100,0.1); border: 1px solid #0e4; color: #0e4; display: block; }
+  .status.err { background: rgba(255,61,113,0.1); border: 1px solid var(--accent2); color: var(--accent2); display: block; }
+
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+    .output-wrap, .integration { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<h1>// SSD1306 Logo Converter</h1>
+<p class="sub">128×64 · Bitmap → C Header · Arduino / ESP32</p>
+
+<div class="grid">
+
+  <!-- INPUT -->
+  <div class="panel">
+    <div class="panel-title">01 // Bild laden</div>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="dropzone-icon">⬆</div>
+      <div class="dropzone-text">Bild hier ablegen oder klicken</div>
+    </div>
+
+    <div class="controls">
+      <div>
+        <label>Schwellwert (Threshold)</label>
+        <div class="row">
+          <input type="range" id="threshold" min="0" max="255" value="128">
+          <span class="val" id="thresholdVal">128</span>
+        </div>
+      </div>
+
+      <div>
+        <label>Skalierung</label>
+        <select id="scaleMode">
+          <option value="fit">Einpassen (fit)</option>
+          <option value="fill">Füllen (fill/crop)</option>
+          <option value="stretch">Strecken</option>
+        </select>
+      </div>
+
+      <div class="toggle-row">
+        <label style="margin:0">Farben invertieren</label>
+        <div class="toggle" id="invertToggle" onclick="toggleInvert()"></div>
+      </div>
+
+      <div class="toggle-row">
+        <label style="margin:0">Dithering (Floyd-Steinberg)</label>
+        <div class="toggle" id="ditherToggle" onclick="toggleDither()"></div>
+      </div>
+
+      <div>
+        <label>Array-Name in logo.h</label>
+        <input type="text" id="arrayName" value="logo_bmp" style="background:#0d0d14;border:1px solid #2a2a3a;color:#c8ccd8;padding:5px 8px;font-family:var(--mono);font-size:0.8rem;width:100%;outline:none;">
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="panel">
+    <div class="panel-title">02 // Vorschau (128×64)</div>
+    <div class="preview-wrap">
+      <canvas id="previewCanvas" width="128" height="64"
+              style="width:256px;height:128px;"></canvas>
+    </div>
+    <div class="pixel-info" id="pixelInfo">— kein Bild geladen —</div>
+
+    <div style="margin-top:14px">
+      <label>Zeichne direkt (Pixel-Editor)</label>
+      <canvas id="editorCanvas" width="128" height="64"
+              style="width:100%;border:1px solid #1a1a26;cursor:crosshair;image-rendering:pixelated;display:block;"
+              ></canvas>
+      <div class="btn-row">
+        <button class="btn" onclick="clearEditor()">Löschen</button>
+        <button class="btn" onclick="invertEditor()">Invertieren</button>
+        <button class="btn" id="editorModeBtn" onclick="toggleEditorMode()">Modus: Setzen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="panel output-wrap">
+    <div class="panel-title">03 // logo.h generieren</div>
+    <div class="btn-row">
+      <button class="btn" onclick="generate()">▶ Generieren</button>
+      <button class="btn" onclick="copyOutput()">⎘ Kopieren</button>
+      <button class="btn" onclick="downloadHeader()">↓ logo.h speichern</button>
+    </div>
+    <div id="status" class="status"></div>
+    <textarea id="output" readonly placeholder="// Hier erscheint der generierte C-Code..."></textarea>
+  </div>
+
+  <!-- INTEGRATION -->
+  <div class="integration">
+    <div class="panel-title">04 // Integration in BK3266_Controller.ino</div>
+    <pre><span class="cm">// 1. logo.h im selben Ordner wie .ino ablegen</span>
+<span class="cm">// 2. Am Anfang der .ino einfügen:</span>
+<span class="kw">#include</span> <span class="str">"logo.h"</span>
+
+<span class="cm">// 3. showSplash() ersetzen durch:</span>
+<span class="kw">void</span> <span class="fn">showSplash</span>() {
+  display.<span class="fn">clearDisplay</span>();
+  display.<span class="fn">drawBitmap</span>(0, 0, logo_bmp, 128, 64, SSD1306_WHITE);
+  display.<span class="fn">display</span>();
+  <span class="fn">delay</span>(2000);
+}</pre>
+  </div>
+
+</div>
+
+<script>
+// ---- State ----
+const W = 128, H = 64;
+let pixels = new Uint8Array(W * H); // 0=black, 1=white
+let sourcePixels = null;
+let inverted = false;
+let dithering = false;
+let editorPainting = false;
+let editorMode = 1; // 1=set, 0=clear
+
+// ---- Canvas refs ----
+const previewCanvas = document.getElementById('previewCanvas');
+const previewCtx    = previewCanvas.getContext('2d');
+const editorCanvas  = document.getElementById('editorCanvas');
+const editorCtx     = editorCanvas.getContext('2d');
+
+// ---- Init ----
+drawPreview();
+drawEditor();
+
+// ---- File input ----
+const fileInput = document.getElementById('fileInput');
+const dropzone  = document.getElementById('dropzone');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadImage(e.target.files[0]);
+});
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+});
+
+function loadImage(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const tmp = document.createElement('canvas');
+      tmp.width = W; tmp.height = H;
+      const ctx = tmp.getContext('2d');
+      const mode = document.getElementById('scaleMode').value;
+
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+
+      if (mode === 'stretch') {
+        ctx.drawImage(img, 0, 0, W, H);
+      } else if (mode === 'fit') {
+        const scale = Math.min(W / img.width, H / img.height);
+        const sw = img.width * scale, sh = img.height * scale;
+        ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
+      } else { // fill
+        const scale = Math.max(W / img.width, H / img.height);
+        const sw = img.width * scale, sh = img.height * scale;
+        ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
+      }
+
+      const data = ctx.getImageData(0, 0, W, H).data;
+      sourcePixels = new Float32Array(W * H);
+      for (let i = 0; i < W * H; i++) {
+        const r = data[i*4], g = data[i*4+1], b = data[i*4+2];
+        sourcePixels[i] = 0.299*r + 0.587*g + 0.114*b; // luminance
+      }
+      applyThreshold();
+      document.getElementById('pixelInfo').textContent =
+        `Bild: ${img.width}×${img.height}px → 128×64 konvertiert`;
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ---- Controls ----
+const thresholdSlider = document.getElementById('threshold');
+const thresholdVal    = document.getElementById('thresholdVal');
+thresholdSlider.addEventListener('input', () => {
+  thresholdVal.textContent = thresholdSlider.value;
+  if (sourcePixels) applyThreshold();
+});
+document.getElementById('scaleMode').addEventListener('change', () => {
+  if (sourcePixels) {
+    // Re-load from source — just retrigger threshold with current data
+    applyThreshold();
+  }
+});
+
+function toggleInvert() {
+  inverted = !inverted;
+  document.getElementById('invertToggle').classList.toggle('on', inverted);
+  if (sourcePixels) applyThreshold();
+  else { invertEditor(); }
+}
+
+function toggleDither() {
+  dithering = !dithering;
+  document.getElementById('ditherToggle').classList.toggle('on', dithering);
+  if (sourcePixels) applyThreshold();
+}
+
+function applyThreshold() {
+  if (!sourcePixels) return;
+  const t = parseInt(thresholdSlider.value);
+  const src = sourcePixels.slice();
+
+  if (dithering) {
+    // Floyd-Steinberg
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const idx = y * W + x;
+        const old = src[idx];
+        const newVal = old > t ? 255 : 0;
+        src[idx] = newVal;
+        const err = old - newVal;
+        if (x + 1 < W)         src[idx + 1]     += err * 7/16;
+        if (y + 1 < H) {
+          if (x > 0)           src[idx + W - 1] += err * 3/16;
+                               src[idx + W]     += err * 5/16;
+          if (x + 1 < W)      src[idx + W + 1] += err * 1/16;
+        }
+      }
+    }
+    for (let i = 0; i < W * H; i++) {
+      let v = src[i] > 127 ? 1 : 0;
+      pixels[i] = inverted ? 1 - v : v;
+    }
+  } else {
+    for (let i = 0; i < W * H; i++) {
+      let v = sourcePixels[i] > t ? 1 : 0;
+      pixels[i] = inverted ? 1 - v : v;
+    }
+  }
+
+  drawPreview();
+  drawEditor();
+}
+
+// ---- Preview ----
+function drawPreview() {
+  const img = previewCtx.createImageData(W, H);
+  for (let i = 0; i < W * H; i++) {
+    const c = pixels[i] ? 255 : 0;
+    img.data[i*4]   = c;
+    img.data[i*4+1] = c;
+    img.data[i*4+2] = c;
+    img.data[i*4+3] = 255;
+  }
+  previewCtx.putImageData(img, 0, 0);
+}
+
+// ---- Editor ----
+function drawEditor() {
+  // Scale to canvas display size
+  const dpr = window.devicePixelRatio || 1;
+  const rect = editorCanvas.getBoundingClientRect();
+
+  const img = editorCtx.createImageData(W, H);
+  for (let i = 0; i < W * H; i++) {
+    const c = pixels[i] ? 255 : 0;
+    img.data[i*4]   = c;
+    img.data[i*4+1] = c;
+    img.data[i*4+2] = c;
+    img.data[i*4+3] = 255;
+  }
+  editorCtx.putImageData(img, 0, 0);
+}
+
+// Editor mouse/touch painting
+editorCanvas.addEventListener('mousedown', e => { editorPainting = true; paint(e); });
+editorCanvas.addEventListener('mousemove', e => { if (editorPainting) paint(e); });
+editorCanvas.addEventListener('mouseup',   () => editorPainting = false);
+editorCanvas.addEventListener('mouseleave',() => editorPainting = false);
+
+editorCanvas.addEventListener('touchstart', e => { e.preventDefault(); editorPainting = true; paint(e.touches[0]); }, {passive:false});
+editorCanvas.addEventListener('touchmove',  e => { e.preventDefault(); if (editorPainting) paint(e.touches[0]); }, {passive:false});
+editorCanvas.addEventListener('touchend',   () => editorPainting = false);
+
+function paint(e) {
+  const rect = editorCanvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  const x = Math.floor((e.clientX - rect.left) * scaleX);
+  const y = Math.floor((e.clientY - rect.top)  * scaleY);
+  if (x >= 0 && x < W && y >= 0 && y < H) {
+    pixels[y * W + x] = editorMode;
+    drawPreview();
+    drawEditor();
+  }
+}
+
+function toggleEditorMode() {
+  editorMode = editorMode ? 0 : 1;
+  document.getElementById('editorModeBtn').textContent =
+    'Modus: ' + (editorMode ? 'Setzen' : 'Löschen');
+}
+
+function clearEditor() {
+  pixels.fill(0);
+  sourcePixels = null;
+  drawPreview();
+  drawEditor();
+}
+
+function invertEditor() {
+  for (let i = 0; i < W * H; i++) pixels[i] = pixels[i] ? 0 : 1;
+  drawPreview();
+  drawEditor();
+}
+
+// ---- Generate ----
+function generate() {
+  const name = document.getElementById('arrayName').value.trim() || 'logo_bmp';
+
+  // SSD1306 drawBitmap format: MSB first, row by row
+  // Each byte = 8 horizontal pixels, bit7 = leftmost
+  const bytes = [];
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x += 8) {
+      let b = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        if (pixels[y * W + x + bit]) b |= (0x80 >> bit);
+      }
+      bytes.push(b);
+    }
+  }
+
+  const totalBytes = bytes.length; // 128*64/8 = 1024
+
+  let lines = [];
+  lines.push(`// logo.h — SSD1306 128x64 Bitmap`);
+  lines.push(`// Generiert mit SSD1306 Logo Converter`);
+  lines.push(`// Bytes: ${totalBytes} (128×64 / 8)`);
+  lines.push(`//`);
+  lines.push(`// Verwendung:`);
+  lines.push(`//   display.drawBitmap(0, 0, ${name}, 128, 64, SSD1306_WHITE);`);
+  lines.push(``);
+  lines.push(`#pragma once`);
+  lines.push(`#include <avr/pgmspace.h>`);
+  lines.push(``);
+  lines.push(`static const uint8_t PROGMEM ${name}[] = {`);
+
+  // 16 bytes per line
+  for (let i = 0; i < bytes.length; i += 16) {
+    const chunk = bytes.slice(i, i + 16);
+    const hex = chunk.map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ');
+    const isLast = (i + 16 >= bytes.length);
+    lines.push('  ' + hex + (isLast ? '' : ','));
+  }
+
+  lines.push(`};`);
+  lines.push(``);
+  lines.push(`// Breite:  128 px`);
+  lines.push(`// Höhe:    64 px`);
+
+  const code = lines.join('\n');
+  document.getElementById('output').value = code;
+
+  const status = document.getElementById('status');
+  status.className = 'status ok';
+  status.textContent = `✓ ${totalBytes} Bytes generiert · Array: ${name}`;
+}
+
+function copyOutput() {
+  const ta = document.getElementById('output');
+  if (!ta.value) { generate(); }
+  navigator.clipboard.writeText(ta.value).then(() => {
+    const status = document.getElementById('status');
+    status.className = 'status ok';
+    status.textContent = '✓ In Zwischenablage kopiert';
+  });
+}
+
+function downloadHeader() {
+  if (!document.getElementById('output').value) generate();
+  const code = document.getElementById('output').value;
+  const name = document.getElementById('arrayName').value.trim() || 'logo_bmp';
+  const blob = new Blob([code], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'logo.h';
+  a.click();
+}
+</script>
+</body>
+</html>
