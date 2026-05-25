@@ -1,4 +1,6 @@
 # BK3266 Controller
+Bluetooth Sender für "jede" Audioquelle, sucht und findet Bluetooth Empfänger (Kopfhörer/Headsets/Lautsprecher usw.) und lässt den Benutzer wählen, womit die Verbindung hergestellt wird. 
+Ausserdem kann man auch ein EQ Preset aus dem Bluetooth Transmitter auswählen, um den Klang anzupassen.
 
 Bluetooth Audio Transmitter Controller für Heltec WiFi Kit 32 (V1) + BK3266 / F-6988 V3.1.
 
